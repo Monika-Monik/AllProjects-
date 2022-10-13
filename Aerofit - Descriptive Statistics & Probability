@@ -1,0 +1,35 @@
+Analysis is available at the below colab link
+
+Colab Link:     https://colab.research.google.com/drive/1LDhzM9o6qtTS1NXx0fDksAfNXMsSeWYk?usp=sharing
+
+Observation:
+1.Overall the most customers prefer to purchase KP281 treadmill followed by KP481 and KP781.
+
+2.Customer Profiling:
+	Genderwise Customer distribution:
+	i)For KP281,the proportion of female and male customers are equal.
+	It means the feauture of the product is feasible for both.
+	ii)For KP481,male customers are little more as compared to female.
+	iii)Lastly KP781,a huge difference in number of male and female customers.
+	Female customer is very less as compared to male. The product might not suitable for female.
+	
+	MaritalStatus/Agewise: The demand of KP281 is high as compared to other treadmill .
+				Couples used to prefer all treadmill products but most bachelors prefer to purchase KP281 treadmill.
+		i)Customers with age group 23 to 26 and partnered prefer to purchase product KP281.
+					But bachelors from 30 to 38 age group prefer KP281 mostly
+					It means the product is feasible for each age group
+		ii)Customers with age group 25 and partnered prefer to purchase KP481
+		iii)Customers with age group 25 and partnered prefer to purchase KP781 and bachleors from age group 22 to 24 are purchasing it.
+			It means the product is expensive for other age group as well irrespective of the marital status.
+
+	Incomewise:
+		i)Product KP781 is accessible from middle class to upper middle class customers.It shows they are leading.
+		ii)Producst KP281 and KP481 cover mainly customers having 60 thousands to 70 thousands.
+			It means they should introduce additonal features to attract upper middle class customers
+	
+	
+Recommendation:
+	i)Producst KP481 and KP781 should design the products by considering female customers and budget friendly as well.
+	ii)KP281 and KP481 should introduce additonal features to attract upper middle class customers.
+	iii)KP781 is expensive for bachelors so they can add other benefits for bachelor to increase the purchase rate by covering more bachelors.
+	iv)KP781 can provide discount to increase the purchase rate
