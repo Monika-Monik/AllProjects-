@@ -1,0 +1,21 @@
+Colab Link : https://colab.research.google.com/drive/1BoDkT_n81G9z5ovOUdpjloWIgzsirFLK#scrollTo=nYf63zUBsl6I
+
+
+Recommendations
+1)Users prefer to get rented bike in fall/Autumn mostly.Least users prefer rented bikes in spring.
+
+Yulu can provide hourwise discount on specific seasons when customers prefer to go out which may increase the demand.
+
+2)Casual customers' requirement and registered customers' requirement for rented bike are on different days.
+
+Yulu should add additional benefits so that this gap of rented bikes on working and non working days can be filled.
+
+3)Using 2-Sample T-Test,P-value is greater than alpha that is 0.05.It means that we fail to reject the null hyposthesis.
+
+Bike rental doesn't depend on working day.Yulu may provide subscription to the customers on working days to increase the demand rate or special discount in office hours.
+
+4)Using Annova Test,we got that the p-value is less than alpha which means that the weather impact the number of bike rentals.
+
+5)Using Annova Test,p-value is less than alpha and rejected the null hypothesis which clearly proved that the demand of rental bikes is dependent on seasons. Yulu should provide offers seasonally .If they provide discount on school holidays or summer vacation then demand may be increased.
+
+6)Using Chi square test,p-value is less than alpha and rejected the null hypthesis .Then we have concluded that weather is dependent on Season. This can be improved by checking the weather forecast before booking for rental bikes.
