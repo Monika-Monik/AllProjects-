@@ -1,0 +1,281 @@
+Analysis on Target Retail’s data
+GOAL: By analyzing this extensive dataset, it becomes possible to gain valuable insights into Target’s operations in Brazil. The information can shed light on various aspects of the business, 
+such as order processing,pricing strategies, payment and shipping efficiency, customer demographics, product characteristics, and customer satisfaction levels.
+
+1) Import the dataset and do usual exploratory analysis steps like checking the structure &
+characteristics of the dataset
+i)Data type of columns in a table:
+The ids are in numeric data type. Order_customer_delivered_date is in datetimestamp. So we need to 
+extract date out of it if in case required.
+ii)Time period for which the data is given: 
+Select distinct year from
+(Select EXTRACT (Year FROM CAST(order_purchase_timestamp AS DATE)) as year from DB.orders)
+Query_Result:
+Insight: Data of 2016,2017 and 2018 are used
+iii)Cities and States covered in the dataset: 
+Select count(distinct customer_state) as state_count,
+count(distinct customer_city) as city_count from `DB.customers`
+Query_Result:
+Insight: i)27 states and 4119 cities of Brazil are covered 
+ii) States are given in code.
+Recommendation: To get brief about the states,I haved used a table scode to get the full name of states
+2)In-depth Exploration:
+i)Is there a growing trend on e-commerce in Brazil? How can we describe a complete scenario? 
+Can we see some seasonality with peaks at specific months?
+Select count(distinct order_id) AS Order_Count,Year,Month
+FROM
+(Select order_id ,
+extract(year from cast(order_delivered_customer_date as date)) AS Year,
+extract( month from cast(order_delivered_customer_date as date)) AS Month from 
+`DB.orders`
+where order_delivered_customer_date is not null)
+group by Year,Month
+order by Year desc,count(distinct order_id) desc
+Output:
+Insight: The trend on e-commerce is fluctuating in each year.But there are common months where
+orders are placed at the peak which are March, July and August but trend has fallen suddenly after huge 
+orders placed.
+Recommendation: We can offer discount at the regular interval of time within two months as the 
+purchase count is falling month over month,especially by the end and start of the year.
+ii.What time do Brazilian customers tend to buy (Dawn, Morning, Afternoon or Night)?
+Select * FROM (Select distinct hour,(count(distinct order_id) over (partition by hour)) AS order_count,
+CASE
+WHEN hour >= 5 AND hour <6 THEN 'Dawn'
+WHEN hour >= 6 AND hour <12 THEN 'Morning'
+WHEN hour >= 12 AND hour <18 THEN 'Afternoon'
+WHEN (hour >=18 AND hour <=24 OR hour<5 )THEN 'Night'
+END AS status
+FROM (SELECT order_id ,extract(HOUR FROM order_purchase_timestamp) AS hour
+FROM `DB.orders` where order_purchase_timestamp is not null))
+order by order_count desc
+Query Result
+Insight : Brazilian customers prefer Afternoon then Morning to purchase.
+Recommendation: Offers or Sale should be offered in Night as customers are placing least so
+offering in night may attract to purchase.
+3)Evolution of E-commerce orders in the Brazil region:
+i)Get month on month orders by region, states
+SELECT Count(order_id) AS
+order_count,order_purchase_timestamp,geolocation_state,geolocation_city,extract(MONTH FROM 
+order_purchase_timestamp) AS MONTH from `DB.orders` o 
+join `DB.customers` c on o.customer_id=c.customer_id
+join `DB.geolocation` g on g.geolocation_zip_code_prefix=c.customer_zip_code_prefix
+Where order_status = 'created' Group BY 
+order_purchase_timestamp,geolocation_state,geolocation_city
+Query result
+Insight: Maximum order are placed in November in rio de janeiro city. And least order is placed by 
+customers from Parana.
+Recommendation: Sale/Discount can be offered in month of November and December which may 
+affect.
+ii) How are customers distributed in Brazil
+Select count(distinct(c.customer_id)) as customer_count,c.customer_city as customer_city,s.sta
+te as customer_state,c.customer_zip_code_prefix
+from `DB.customers` c
+join `DB.geolocation` g on c.customer_zip_code_prefix=g.geolocation_zip_code_prefix
+join `DB.orders` o on c.customer_id=o.customer_id
+join `DB.scode` s ON g.geolocation_state=s.code
+group by customer_city,customer_state,c.customer_zip_code_prefix
+Order by count(distinct(c.customer_id)) desc
+Insight: Customers are maximum from rio de janeiro city and least from uberlandia city of Minas Gerais 
+state.
+4.Impact on Economy: Analyze the money movemented by e-commerce by looking at order 
+prices, freight and others.
+i).Get % increase in cost of orders from 2017 to 2018 (include months between Jan to Aug only)
+Create or replace view DB.sales as (Select * FROM
+(SELECT o.order_id as order_id,price,order_item_id ,freight_value,shipping_limit_date,
+EXTRACT(month FROM shipping_limit_date) AS month,
+EXTRACT(Year FROM shipping_limit_date) AS year,
+FORMAT_DATE('%B',CAST(shipping_limit_date AS DATE)) AS Month_
+FROM `DB.orders` o
+JOIN `DB.order_items` ot ON o.order_id=ot.order_id WHERE shipping_limit_date is not null) WHERE 
+year IN (2017,2018) and month <=8);
+create or replace view DB.c1 as ( SELECT count(*)AS Total_order_2017,Month_,month,SUM(price) AS 
+Total_sale_2017 FROM `DB.sales` WHERE year=2017 group by Month_,month);
+create or replace view DB.c2 as (SELECT count(*)AS Total_order_2018,Month_,SUM(price) AS 
+Total_sale_2018 FROM `DB.sales` WHERE year=2018 group by Month_,month);
+Select t1.Month_ AS Month,Total_order_2017,Total_order_2018, 
+((Total_sale_2018-Total_sale_2017)/Total_sale_2017)*100 AS Increase_in_Sale_from_2017_to_2018
+from DB.c1 t1 inner join DB.c2 t2 on t1.Month_=t2.Month_ order by t1.month 
+Insight: The sale is increased from 2017 to 2018 for each month.The trend is increasing.
+ii).Mean & Sum of price and freight value by customer state
+CREATE VIEW DB.mean_ as
+(SELECT * FROM
+(SELECT ROUND(SUM(price)/COUNT(price),2) AS Mean_price,
+ROUND (SUM (freight_value)/ COUNT (freight_value),2) AS Mean_freight_value,
+ROUND (SUM (price),2) AS Sum_Price,
+ROUND (SUM (freight_value),2) AS Sum_Freight_Value,
+customer_state
+FROM `DB.order_items` ot
+JOIN `DB.orders` o on ot.order_id =o.order_id
+JOIN `DB.customers` c on c.customer_id=o.customer_id GROUP BY customer_state) ORDER BY
+Mean_price desc,Mean_freight_value desc);
+SELECT Mean_price,Mean_freight_value,Sum_Price,Sum_Freight_Value,c.state AS State 
+FROM DB.mean_ m 
+JOIN DB.scode c ON m.customer_state=c.code
+Query_result:
+Insight: Purchase rate of Paraiba is high and least from Ceara out of top 10 records.
+5.Analysis on sales, freight and delivery time
+i).Calculate days between purchasing, delivering and estimated delivery
+ii). Create columns:
+time_to_delivery = order_purchase_timestamp-order_delivered_customer_date
+diff_estimated_delivery = order_estimated_delivery_date-order_delivered_customer_date
+Select c.customer_state AS state,
+(sum(distinct ot.freight_value)/count(distinct ot.freight_value)) AS freight_mean ,
+(EXTRACT(DAY FROM (EXTRACT(DATE FROM order_delivered_customer_date) - EXTRACT(DATE 
+ FROM order_purchase_timestamp)))) AS time_to_delivery , 
+ (EXTRACT(DAY FROM (EXTRACT(DATE FROM order_estimated_delivery_date) - EXTRACT(DATE 
+ FROM order_delivered_customer_date)))) AS diff_estimated_delivery 
+ FROM DB.orders o
+ join `DB.order_items` ot on ot.order_id=o.order_id
+ join `DB.customers` c on o.customer_id=c.customer_id
+ WHERE order_purchase_timestamp is not null and order_delivered_customer_date is not null
+iii). Group data by state, take mean of freight_value, time_to_delivery, diff_estimated_delivery
+Select c.customer_state AS state,
+(sum(distinct ot.freight_value)/count(distinct ot.freight_value)) AS freight_mean ,
+(EXTRACT(DAY FROM (EXTRACT(DATE FROM order_delivered_customer_date) - EXTRACT(DATE FROM 
+order_purchase_timestamp)))) AS time_to_delivery , 
+(EXTRACT(DAY FROM (EXTRACT(DATE FROM order_estimated_delivery_date) - EXTRACT(DATE FROM 
+order_delivered_customer_date)))) AS diff_estimated_delivery 
+FROM DB.orders o
+JOIN `DB.order_items` ot on ot.order_id=o.order_id
+JOIN `DB.customers` c on o.customer_id=c.customer_id
+WHERE order_purchase_timestamp is not null and order_delivered_customer_date is not null
+GROUP BY state,freight_value,time_to_delivery,diff_estimated_delivery
+Query_Result: 
+iv). Sort the data to get the following:
+i) Top 5 states with highest/lowest average freight value - sort in desc/asc limit 5
+HIGHEST average freight value
+Select state FROM (
+SELECT c.customer_state AS state,avg(ot.freight_value) AS freight_mean ,
+(EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_delivered_customer_date) -
+EXTRACT(DATE FROM order_purchase_timestamp)))) AS time_to_delivery ,
+(EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_estimated_delivery_date) -
+EXTRACT(DATE FROM order_delivered_customer_date)))) AS diff_estimated_delivery
+FROM DB.orders o
+join `DB.order_items` ot on ot.order_id=o.order_id
+join `DB.customers` c on o.customer_id=c.customer_id
+WHERE order_purchase_timestamp is not null and order_delivered_customer_date is not null
+GROUP BY state,freight_value,time_to_delivery,diff_estimated_delivery)
+ORDER BY freight_mean desc limit 5;
+Query_Result:
+Insight: Piaui is having highest average freight value and Mato Grosso 
+ii)Top 5 states with highest/lowest average time to delivery
+Highest average time to delivery
+Select distinct state,NTILE(5) over (order by avg_time_to_delivery desc) as dr from(
+Select
+s.state AS state,
+avg(ot.freight_value) AS freight_mean ,
+AVG((EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_delivered_customer_date) -
+EXTRACT(DATE FROM order_purchase_timestamp))))) AS avg_time_to_delivery,
+(EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_delivered_customer_date) -
+EXTRACT(DATE FROM order_purchase_timestamp)))) AS time_to_delivery ,
+(EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_estimated_delivery_date) -
+EXTRACT(DATE FROM order_delivered_customer_date)))) AS diff_estimated_delivery
+from DB.orders o
+join `DB.order_items` ot on ot.order_id=o.order_id
+join `DB.customers` c on o.customer_id=c.customer_id
+join `DB.scode` s on s.code=c.customer_state
+WHERE order_purchase_timestamp is not null and order_delivered_customer_date is not null
+group by state,freight_value,time_to_delivery,diff_estimated_delivery)
+order by dr desc limit 5
+Query_result:
+Insight: Pernambuco is having average time to delivery.
+Lowest average time to delivery
+Select distinct state,NTILE(5) over (order by avg_time_to_delivery desc) as dr from(
+Select
+s.state AS state,
+avg(ot.freight_value) AS freight_mean ,
+AVG((EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_delivered_customer_date) -
+EXTRACT(DATE FROM order_purchase_timestamp))))) AS avg_time_to_delivery,
+(EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_delivered_customer_date) -
+EXTRACT(DATE FROM order_purchase_timestamp)))) AS time_to_delivery ,
+(EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_estimated_delivery_date) -
+EXTRACT(DATE FROM order_delivered_customer_date)))) AS diff_estimated_delivery
+from DB.orders o
+join `DB.order_items` ot on ot.order_id=o.order_id
+join `DB.customers` c on o.customer_id=c.customer_id
+join `DB.scode` s on s.code=c.customer_state
+WHERE order_purchase_timestamp is not null and order_delivered_customer_date is not null
+group by state,freight_value,time_to_delivery,diff_estimated_delivery)
+order by dr asc limit 5
+Query_Result:
+Insight: Espirito Santo is having lowest average time to delivery the product.
+iii) Top 5 states where delivery is really fast/ not so fast compared to estimated date
+Really fast
+SELECT distinct state,dr from (
+Select distinct state,NTILE(5) over (partition by state order by time_to_delivery) as dr from(
+Select
+s.state AS state,
+avg(ot.freight_value) AS freight_mean ,
+(EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_delivered_customer_date) -
+EXTRACT(DATE FROM order_purchase_timestamp)))) AS time_to_delivery ,
+(EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_estimated_delivery_date) -
+EXTRACT(DATE FROM order_delivered_customer_date)))) AS diff_estimated_delivery
+from DB.orders o
+join `DB.order_items` ot on ot.order_id=o.order_id
+join `DB.customers` c on o.customer_id=c.customer_id
+join `DB.scode` s on s.code=c.customer_state
+WHERE order_purchase_timestamp is not null and order_delivered_customer_date is not null
+group by state,freight_value,time_to_delivery,diff_estimated_delivery)
+)order by dr limit 5
+Query_Result:
+Insight: Roraima state is taking very less time to delivery product. It means delivery is very fast.
+Slow Delivery:
+SELECT distinct state,dr from (
+Select distinct state,NTILE(5) over (partition by state order by time_to_delivery) as dr from(
+Select
+s.state AS state,
+avg(ot.freight_value) AS freight_mean ,
+(EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_delivered_customer_date) -
+EXTRACT(DATE FROM order_purchase_timestamp)))) AS time_to_delivery ,
+(EXTRACT(DAY FROM
+(EXTRACT(DATE FROM order_estimated_delivery_date) -
+EXTRACT(DATE FROM order_delivered_customer_date)))) AS diff_estimated_delivery
+from DB.orders o
+join `DB.order_items` ot on ot.order_id=o.order_id
+join `DB.customers` c on o.customer_id=c.customer_id
+join `DB.scode` s on s.code=c.customer_state
+WHERE order_purchase_timestamp is not null and order_delivered_customer_date is not null
+group by state,freight_value,time_to_delivery,diff_estimated_delivery)
+)order by dr desc limit 5
+Query_Result:
+Insight: Tocanitins state’s delivery-time of product is very slow
+6. Payment type analysis:
+i) Month over Month count of orders for different payment types
+SELECT count(order_id) AS count_order,payment_type,order_delivered_month FROM
+(SELECT o.order_id AS order_id,payment_type,
+EXTRACT( month FROM CAST(order_delivered_customer_date AS DATE)) AS delivered_month,
+format_date('%b',cast(order_delivered_customer_date as DATE)) AS order_delivered_month
+FROM `DB.orders` o
+join `DB.payments` p ON o.order_id=p.order_id
+join `DB.customers` c on c.customer_id=o.customer_id
+WHERE order_delivered_customer_date IS NOT NULL) x
+group by payment_type,delivered_month,order_delivered_month
+order by delivered_month asc,count(order_id) desc
+Query_Result:
+Insight: Credit card is the most preferrable payment mode in each month and least one is debit card.
+Recommendation: Target can collaborate with any bank to offer customer credit with credit points
+which can be used to shop. In this way both bank and Target will get profit on sales.
+ii.) Distribution of payment installments and count of orders
+SELECT payment_installments,count(distinct order_id) as order_count from
+(SELECT o.order_id AS order_id,payment_installments
+FROM `DB.orders` o
+JOIN `DB.payments` p
+ON o.order_id =p.order_id where order_delivered_customer_date is not null)
+group by payment_installments
+order by count(order_id) desc
+Query_Result:
+Insight: Customers have chosen credit card as payment mode utmost and least debit card for 
+installments.
+Recommendation: Target can offer credit card to customer and provide credit points to shop to attract 
+more customers to purchase product.
